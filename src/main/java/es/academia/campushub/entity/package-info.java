@@ -1,6 +1,2 @@
-/**
- * Entidades JPA que debe diseñar el alumno a partir de los requisitos y de las pruebas.
- *
- * <p>Este proyecto base no incluye la solución de persistencia.
- */
+/** Entidades JPA que se guardan en PostgreSQL. */
 package es.academia.campushub.entity;
