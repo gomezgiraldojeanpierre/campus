@@ -1,2 +1,2 @@
-/** Repositorios Spring Data JPA y MongoDB que debe implementar el alumno. */
+/** Repositorios Spring Data JPA y MongoDB. */
 package es.academia.campushub.repository;
