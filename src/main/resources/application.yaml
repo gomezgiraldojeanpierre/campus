@@ -12,8 +12,15 @@ spring:
   mongodb:
     uri: ${MONGODB_URI:mongodb://localhost:27017/campushub}
   data:
+    mongodb:
+      database: ${MONGODB_DATABASE:campushub}
     redis:
       host: ${REDIS_HOST:localhost}
       port: ${REDIS_PORT:6379}
+      timeout: 500ms
+      connect-timeout: 500ms
+campushub:
+  cache:
+    enabled: true
 server:
   port: ${PORT:8080}
