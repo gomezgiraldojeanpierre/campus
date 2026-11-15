@@ -26,8 +26,8 @@ Campos `fechaNacimiento`, `fechaPrevista` y `fechaAutorizacion` son strings ISO 
 
 ## DTO y persistencia
 
-Los DTO fijan el contrato del cliente, **no** el diseño relacional o documental. El alumno
-puede elegir entidades, colecciones, tablas intermedias y tipos internos. Los identificadores
+Los DTO fijan el contrato del cliente, **no** el diseño relacional o documental. Las entidades,
+colecciones, tablas intermedias y tipos internos son libres. Los identificadores
 visibles en la API son `Long` salvo los registros de seguimiento, cuyo ID es `String`.
 
 La propiedad `datos` de `CreateSeguimientoRequest` es un objeto JSON de claves libres, para
@@ -38,14 +38,13 @@ permitir distintos seguimientos. Se debe conservar su estructura y permitir recu
 - 400: datos malformados o inválidos que no tienen sentido como conflicto con datos existentes.
 - 404: estudiante, docente, actividad o etiqueta requeridos inexistentes.
 - 409: inscripción duplicada, falta de plazas o violación de unicidad de recursos existentes.
-- 501: stub todavía no implementado (solo durante el desarrollo).
 
 En el detalle: una actividad sin inscripciones, etiquetas o seguimientos debe devolver listas
 vacías, no `null`. Las plazas disponibles se calculan como capacidad - ocupadas.
 
-## Decisión deliberada: DTO sin Bean Validation exhaustiva
+## DTO sin Bean Validation
 
-No se han añadido `@NotNull`, `@NotBlank`, `@Size`, `@Email` ni `@Min` para que el
-alumno tenga que implementar tanto reglas de negocio como restricciones de persistencia.
-El parser JSON puede rechazar entradas estructuralmente mal formadas, pero eso no sustituye
-la protección del almacenamiento frente a inserciones inválidas.
+Los DTO no llevan `@NotNull`, `@NotBlank`, `@Size`, `@Email` ni `@Min`. Las validaciones están en
+el servicio y las restricciones en la base de datos. El parser JSON puede rechazar entradas
+estructuralmente mal formadas, pero eso no sustituye la protección del almacenamiento frente a
+inserciones inválidas.
