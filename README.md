@@ -1,33 +1,83 @@
-# CampusHub — proyecto inicial para alumnos de 2.º DAM
+# CampusHub
 
-**IMPORTANTE:** Este repositorio es intencionadamente incompleto. La API tiene controllers REST y DTO,
-pero la persistencia no existe todavía. Cada operación del servicio devuelve **501 NOT_IMPLEMENTED**.
-Los tests funcionales deben pasar solo después de implementar las entidades, documentos,
-repositorios, servicios y restricciones. **No modificar controllers ni DTO para eludir requisitos.**
+API REST con Spring Boot para gestionar las actividades complementarias de un grupo de centros
+educativos. La persistencia está repartida en dos motores:
+
+- **PostgreSQL** guarda los datos relacionales: departamentos, docentes, grupos, estudiantes,
+  actividades, inscripciones, fichas de contacto y etiquetas.
+- **MongoDB** guarda los seguimientos de las actividades, porque su estructura varía según el tipo.
+
+Documentación del diseño:
+
+- [Modelo de datos](docs/modelo-datos.md): diagrama relacional, restricciones, índices y colección de MongoDB.
+- [Decisiones técnicas](docs/decisiones-tecnicas.md): reparto entre motores, alternativas, riesgos y limitaciones.
+- [Contrato HTTP](docs/api-contract.md): endpoints y campos de la API.
+
+No se han modificado los endpoints, los DTO ni las pruebas entregadas. En `ApiExceptionHandler` solo
+se ha reescrito un comentario. Se ha añadido
+`ContextoSucioTrasClaseListener` en `src/test`, porque sin él los tests de integración fallan al
+ejecutarse juntos (Spring reutiliza un contexto que apunta a contenedores ya parados).
+
+## Comprobar que los datos están guardados
+
+Con la aplicación arrancada y algún dato creado desde Swagger:
+
+```bash
+docker compose exec postgres psql -U campushub -d campushub -c "select id, titulo, tipo, max_participantes from actividad;"
+```
+
+```bash
+docker compose exec mongo mongosh campushub --eval "db.seguimientos.find().pretty()"
+```
+
+Para ver el validador y el índice de MongoDB:
+
+```bash
+docker compose exec mongo mongosh campushub --eval "db.getCollectionInfos({name:'seguimientos'}); db.seguimientos.getIndexes()"
+```
+
+Para ver la caché de Redis, después de consultar `GET /api/actividades/1/detalle`:
+
+```bash
+docker compose exec redis redis-cli keys "actividad:*"
+```
+
+```bash
+docker compose exec redis redis-cli ttl "actividad:1:detalle"
+```
+
+La caché se puede desactivar con `campushub.cache.enabled=false`. Si Redis no está disponible, la
+API sigue funcionando y consulta directamente PostgreSQL y MongoDB.
+
+Los datos se conservan al reiniciar la aplicación, porque los volúmenes de Docker mantienen las
+bases de datos. Para empezar desde cero hay que ejecutar `docker compose down -v`.
+
+Hibernate crea los `CHECK` y las restricciones únicas solo cuando crea la tabla. Si la base de
+datos ya existía de antes con otro esquema, conviene ejecutar `docker compose down -v` para que se
+cree de nuevo con todas las restricciones.
 
 ## Requisitos
 
-- JDK 21 y Maven 3.9+ (o wrapper Maven configurado por el centro).
+- JDK 21 y Maven 3.9+.
 - Docker Engine / Docker Desktop con Docker Compose v2.
 
-## Estructura didáctica
+## Estructura del proyecto
 
-El código parte de una arquitectura tradicional por capas:
+El código sigue una arquitectura por capas:
 
 ```text
 controller/       endpoints REST y tratamiento de errores HTTP
 controller/dto/   contrato de entrada y salida de la API
 service/          casos de uso y reglas de negocio
-repository/       repositorios Spring Data que debe crear el alumno
-entity/           entidades JPA que debe crear el alumno
-document/         documentos MongoDB que debe crear el alumno
-mapper/           conversores entre persistencia y DTO que debe crear el alumno
+repository/       repositorios Spring Data (JPA y MongoDB)
+entity/           entidades JPA
+document/         documentos MongoDB
+mapper/           conversión entre entidades, documentos y DTO
+cache/            caché del detalle de actividades en Redis
+config/           inicialización de la colección de MongoDB
 ```
 
-Los paquetes vacíos contienen `package-info.java` para explicar su responsabilidad sin entregar
-la solución de persistencia. Se puede implementar la conversión manualmente o con MapStruct.
-Lombok y MapStruct están disponibles de forma opcional; Maven ya incluye sus annotation processors
-para Java 21. No es obligatorio usar ninguna de las dos herramientas.
+La conversión entre persistencia y DTO se hace a mano en `CampusMapper`.
 
 ## Arranque
 
@@ -70,8 +120,8 @@ Con la aplicación arrancada, la API se publica automáticamente en:
 - OpenAPI JSON: <http://localhost:8080/v3/api-docs>
 - OpenAPI YAML: <http://localhost:8080/v3/api-docs.yaml>
 
-Springdoc obtiene el contrato inicial de los controllers y DTO. El alumno puede enriquecerlo con
-anotaciones OpenAPI, pero no debe cambiar los endpoints ni los cuerpos fijados por las pruebas.
+Springdoc obtiene el contrato de los controllers y DTO. Los endpoints y los cuerpos están fijados
+por las pruebas y no se han cambiado.
 
 ## Tests
 
@@ -83,39 +133,27 @@ mvn spotless:apply      # aplicar formato antes de verify
 
 Testcontainers necesita un motor Docker funcional. Las pruebas crean bases de datos **aisladas**;
 no utilizan las del `compose.yaml`, cuyo arranque automático está deshabilitado en el perfil de test.
-En el arranque inicial los tests de contrato funcional deben fallar.
+Con la persistencia implementada, `mvn verify` ejecuta las 7 pruebas de integración y todas pasan.
 
 ## Contrato público
 
 Campos de fecha: cadenas ISO-8601 (`YYYY-MM-DD`). Los nombres y estructuras están fijados
 por los `record` en `controller/dto`. Consultar `docs/api-contract.md`.
 
-## Responsabilidades del alumno
-
-- Elegir reparto PostgreSQL/MongoDB y documentarlo.
-- Decidir justificadamente si Redis aporta valor; se entrega disponible, pero su uso no es obligatorio.
-- Implementar entidades y asociaciones JPA; documentos MongoDB y repositorios.
-- Reemplazar stubs de `service/CampusHubService` por lógica propia (puede refactorizarse).
-- Crear mappers/converters manuales o interfaces MapStruct en `mapper`.
-- Implementar restricciones reales de BD: FK, UNIQUE, NOT NULL, CHECK cuando corresponda.
-- Mantener el contrato REST y producir códigos 400/404/409 adecuados.
-- No confiar en validaciones previas de los DTO como sustituto de las restricciones de BD.
-
 ## Tratamiento de errores
 
-Se entregan excepciones `ResourceNotFoundException` (404), `BusinessConflictException` (409),
-`InvalidInputException` (400) y un handler de `DataIntegrityViolationException` (409).
-Los alumnos deben lanzar las excepciones correctas desde sus casos de uso y garantizar la integridad.
-Una excepción de integridad no debería exponer SQL interno. No todas las violaciones son conflictos:
-los alumnos podrán necesitar diferenciar errores según la operación.
+Los casos de uso lanzan `ResourceNotFoundException` (404), `BusinessConflictException` (409) o
+`InvalidInputException` (400), y `ApiExceptionHandler` los convierte en la respuesta HTTP. Si una
+restricción de la base de datos se incumple, el handler de `DataIntegrityViolationException`
+devuelve un 409 sin exponer SQL interno.
 
 ## Persistencia en desarrollo
 
-`spring.jpa.hibernate.ddl-auto=update` facilita empezar con JPA. Para las restricciones que
-JPA no represente adecuadamente se pueden aplicar scripts SQL. **No se entregan scripts de solución.**
-En un entorno de producción convendría versionar el esquema con Flyway o Liquibase.
+`spring.jpa.hibernate.ddl-auto=update` genera el esquema a partir de las anotaciones de las
+entidades. En un entorno de producción convendría versionarlo con Flyway o Liquibase.
 
-## Limitación importante
+## Limitaciones conocidas
 
-Estos ficheros proporcionan el contrato y la estructura, no una solución de referencia.
-Por defecto algunas pruebas del repositorio están destinadas a fallar.
+Están detalladas en [Decisiones técnicas](docs/decisiones-tecnicas.md). Las principales: no hay
+transacción distribuida entre PostgreSQL y MongoDB, `ddl-auto: update` solo crea las restricciones
+al crear la tabla y la caché de Redis puede mostrar un detalle con hasta 60 segundos de retraso.
