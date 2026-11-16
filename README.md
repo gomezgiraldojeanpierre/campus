@@ -133,7 +133,7 @@ mvn spotless:apply      # aplicar formato antes de verify
 
 Testcontainers necesita un motor Docker funcional. Las pruebas crean bases de datos **aisladas**;
 no utilizan las del `compose.yaml`, cuyo arranque automático está deshabilitado en el perfil de test.
-Con la persistencia implementada, `mvn verify` ejecuta las 7 pruebas de integración y todas pasan.
+`mvn verify` ejecuta las 29 pruebas de integración.
 
 ## Contrato público
 
