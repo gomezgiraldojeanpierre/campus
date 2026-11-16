@@ -56,6 +56,44 @@ Hibernate crea los `CHECK` y las restricciones únicas solo cuando crea la tabla
 datos ya existía de antes con otro esquema, conviene ejecutar `docker compose down -v` para que se
 cree de nuevo con todas las restricciones.
 
+## Detener o reiniciar el entorno
+
+Con `mvn spring-boot:run`, al parar la aplicación (`Ctrl+C`) también se paran los contenedores.
+Los datos se conservan, porque los volúmenes de Docker no se borran.
+
+Si se gestionan los contenedores por separado, estos son los comandos habituales.
+
+Arrancarlos:
+
+```bash
+docker compose up -d
+```
+
+Pararlos sin borrar los datos:
+
+```bash
+docker compose stop
+```
+
+Pararlos y eliminar los contenedores, conservando los datos:
+
+```bash
+docker compose down
+```
+
+Pararlos y borrar también los datos, para empezar desde cero:
+
+```bash
+docker compose down -v
+```
+
+Para comprobar la tolerancia a la caída de Redis, se puede parar solo ese contenedor. La API sigue
+respondiendo y consulta directamente las bases de datos:
+
+```bash
+docker compose stop redis
+```
+
 ## Requisitos
 
 - JDK 21 y Maven 3.9+.
